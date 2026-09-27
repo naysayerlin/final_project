@@ -20,6 +20,8 @@ func taskHandler(w http.ResponseWriter, r *http.Request) {
 		updateTaskHandler(w, r)
 	case http.MethodDelete:
 		deleteTaskHandler(w, r)
+	default:
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 	}
 }
 
@@ -43,7 +45,7 @@ func addTaskHandler(w http.ResponseWriter, r *http.Request) {
 	id, err := db.AddTask(&task)
 	if err != nil {
 		log.Println("SERVER: ADD - Error adding to the database:", err)
-		writeError(w, http.StatusBadRequest, err.Error())
+		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 	log.Printf("SERVER: ADD - Successfully added! ID=%d.", id)
@@ -86,10 +88,10 @@ func getTaskHandler(w http.ResponseWriter, r *http.Request) {
 	task, err := db.GetTask(id)
 	if err != nil {
 		log.Println("SERVER: GET - Error importing from the database:", err)
-		writeError(w, http.StatusBadRequest, err.Error())
+		writeError(w, http.StatusNotFound, err.Error())
 		return
 	}
-	log.Printf("SERVER: GET - Method Get sucsessful! ID=%s.", id)
+	log.Printf("SERVER: GET - Method Get sucsessful! ID = %s.", id)
 	writeJSON(w, http.StatusOK, task)
 }
 
@@ -117,7 +119,7 @@ func updateTaskHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := db.UpdateTask(&task); err != nil {
 		log.Printf("SERVER: UPDATE - failed to update task! ID = %d.", task.ID)
-		writeError(w, http.StatusBadRequest, err.Error())
+		writeError(w, http.StatusNotFound, err.Error())
 		return
 	}
 	log.Printf("SERVER: UPDATE - Successfully updated! ID = %d.", task.ID)
@@ -134,7 +136,7 @@ func deleteTaskHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := db.DeleteTask(id); err != nil {
 		log.Printf("SERVER: DELETE - Failed to delete ID = %s.", id)
-		writeError(w, http.StatusBadRequest, err.Error())
+		writeError(w, http.StatusNotFound, err.Error())
 		return
 	}
 	log.Printf("SERVER: DELETE - Successfully deleted! ID = %s.", id)

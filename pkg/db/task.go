@@ -50,28 +50,16 @@ func TasksBySearch(search string, limit int) ([]*Task, error) {
 	if db == nil {
 		return nil, fmt.Errorf("database must be initialized")
 	}
-	query := `SELECT id, date, title, comment, repeat FROM scheduler ORDER BY date`
-	rows, err := db.Query(query)
+	like := "%" + strings.ToLower(search) + "%"
+	query := `SELECT id, date, title, comment, repeat FROM scheduler
+	          WHERE lower_unicode(title) LIKE ? OR lower_unicode(comment) LIKE ?
+	          ORDER BY date LIMIT ?`
+	rows, err := db.Query(query, like, like, limit)
 	if err != nil {
 		return nil, fmt.Errorf("not able to query tasks: %w", err)
 	}
 	defer rows.Close()
-	all, err := scanTasks(rows)
-	if err != nil {
-		return nil, err
-	}
-	needle := strings.ToLower(search)
-	result := []*Task{}
-	for _, t := range all {
-		if strings.Contains(strings.ToLower(t.Title), needle) ||
-			strings.Contains(strings.ToLower(t.Comment), needle) {
-			result = append(result, t)
-			if len(result) >= limit {
-				break
-			}
-		}
-	}
-	return result, nil
+	return scanTasks(rows)
 }
 
 func TasksByDate(date string, limit int) ([]*Task, error) {

@@ -8,16 +8,20 @@ import (
 )
 
 func doneTaskHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
 	id := r.FormValue("id")
 	if id == "" {
 		log.Printf("SERVER: DONE - ID is empty!")
-		writeError(w, http.StatusInternalServerError, "id not set")
+		writeError(w, http.StatusBadRequest, "id not set")
 		return
 	}
 	task, err := db.GetTask(id)
 	if err != nil {
 		log.Printf("SERVER: DONE - Cannot get task! ID = %s.", id)
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeError(w, http.StatusNotFound, err.Error())
 		return
 	}
 	if task.Repeat == "" {
@@ -30,7 +34,7 @@ func doneTaskHandler(w http.ResponseWriter, r *http.Request) {
 		next, err := NextDate(time.Now(), task.Date, task.Repeat)
 		if err != nil {
 			log.Printf("SERVER: DONE - Repeat rule is incorrect! ID = %s.", id)
-			writeError(w, http.StatusInternalServerError, err.Error())
+			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
 		if err := db.UpdateDate(next, id); err != nil {

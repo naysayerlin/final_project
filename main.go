@@ -1,17 +1,19 @@
 package main
 
 import (
+	"final_project/config"
 	"final_project/pkg/db"
 	"final_project/server"
-	"fmt"
+	"log"
+	"os"
 )
 
 func main() {
-
-	if err := db.Init("scheduler.db"); err != nil {
-		fmt.Println(err)
-		return
+	cfg := config.Load()
+	if err := db.Init(cfg.DBFile); err != nil {
+		log.Println(err)
+		os.Exit(1)
 	}
-
-	server.StartServ()
+	defer db.Close()
+	server.StartServ(cfg)
 }
