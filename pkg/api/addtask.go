@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"final_project/pkg/db"
 	"fmt"
+	"log"
 	"net/http"
+	"strconv"
 	"time"
 )
 
@@ -12,29 +14,40 @@ func taskHandler(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodPost:
 		addTaskHandler(w, r)
+	case http.MethodGet:
+		getTaskHandler(w, r)
+	case http.MethodPut:
+		updateTaskHandler(w, r)
+	case http.MethodDelete:
+		deleteTaskHandler(w, r)
 	}
 }
 
 func addTaskHandler(w http.ResponseWriter, r *http.Request) {
 	var task db.Task
 	if err := json.NewDecoder(r.Body).Decode(&task); err != nil {
-		writeError(w, fmt.Sprintf("JSON is wrong: %s", err.Error()))
+		log.Println("SERVER: ADD - error decoding input JSON:", err)
+		writeError(w, http.StatusBadRequest, fmt.Sprintf("JSON is wrong: %s", err.Error()))
 		return
 	}
 	if task.Title == "" {
-		writeError(w, "Empty title")
+		log.Println("SERVER: ADD - Empty Title")
+		writeError(w, http.StatusBadRequest, "Empty title")
 		return
 	}
 	if err := checkDate(&task); err != nil {
-		writeError(w, err.Error())
+		log.Println("SERVER: ADD - Date validation error:", err)
+		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	id, err := db.AddTask(&task)
 	if err != nil {
-		writeError(w, err.Error())
+		log.Println("SERVER: ADD - Error adding to the database:", err)
+		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	writeJSON(w, map[string]string{"id": fmt.Sprintf("%d", id)})
+	log.Printf("SERVER: ADD - Successfully added! ID=%d.", id)
+	writeJSON(w, http.StatusOK, map[string]string{"id": fmt.Sprintf("%d", id)})
 }
 
 func checkDate(task *db.Task) error {
@@ -61,4 +74,69 @@ func checkDate(task *db.Task) error {
 		}
 	}
 	return nil
+}
+
+func getTaskHandler(w http.ResponseWriter, r *http.Request) {
+	id := r.FormValue("id")
+	if id == "" {
+		log.Println("SERVER: GET - Empty ID")
+		writeError(w, http.StatusBadRequest, "Empty id")
+		return
+	}
+	task, err := db.GetTask(id)
+	if err != nil {
+		log.Println("SERVER: GET - Error importing from the database:", err)
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	log.Printf("SERVER: GET - Method Get sucsessful! ID=%s.", id)
+	writeJSON(w, http.StatusOK, task)
+}
+
+func updateTaskHandler(w http.ResponseWriter, r *http.Request) {
+	var task db.Task
+	if err := json.NewDecoder(r.Body).Decode(&task); err != nil {
+		log.Println("SERVER: UPDATE - Error decoding input JSON:", err)
+		writeError(w, http.StatusBadRequest, fmt.Sprintf("JSON is wrong: %s", err.Error()))
+		return
+	}
+	if strconv.FormatInt(task.ID, 10) == "" {
+		log.Printf("SERVER: UPDATE - Empty ID = %d.", task.ID)
+		writeError(w, http.StatusBadRequest, "Empty id!")
+		return
+	}
+	if task.Title == "" {
+		log.Printf("SERVER: UPDATE - Empty Title! ID = %d.", task.ID)
+		writeError(w, http.StatusBadRequest, "Empty title")
+		return
+	}
+	if err := checkDate(&task); err != nil {
+		log.Printf("SERVER: UPDATE - Wrong Date! ID = %d.", task.ID)
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if err := db.UpdateTask(&task); err != nil {
+		log.Printf("SERVER: UPDATE - failed to update task! ID = %d.", task.ID)
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	log.Printf("SERVER: UPDATE - Successfully updated! ID = %d.", task.ID)
+	writeJSON(w, http.StatusOK, map[string]any{})
+
+}
+
+func deleteTaskHandler(w http.ResponseWriter, r *http.Request) {
+	id := r.FormValue("id")
+	if id == "" {
+		log.Printf("SERVER: DELETE - Empty ID = %s.", id)
+		writeError(w, http.StatusBadRequest, "Empty ID")
+		return
+	}
+	if err := db.DeleteTask(id); err != nil {
+		log.Printf("SERVER: DELETE - Failed to delete ID = %s.", id)
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	log.Printf("SERVER: DELETE - Successfully deleted! ID = %s.", id)
+	writeJSON(w, http.StatusOK, map[string]any{})
 }
